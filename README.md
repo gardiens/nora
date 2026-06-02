@@ -20,6 +20,7 @@ it means a lot to us !_**
 Cette branche ajoute plusieurs corrections pratiques autour de `nora url` :
 
 - normalisation automatique des URLs arXiv PDF vers les pages metadata, par exemple `https://arxiv.org/pdf/2605.30307` devient `https://arxiv.org/abs/2605.30307` ;
+- normalisation automatique des PDFs CVF/OpenAccess vers les pages HTML metadata, par exemple `https://openaccess.thecvf.com/content/CVPR2023/papers/..._paper.pdf` devient `https://openaccess.thecvf.com/content/CVPR2023/html/..._paper.html` ;
 - nettoyage des URLs arXiv `abs` avec une lettre finale accidentelle, par exemple `https://arxiv.org/abs/2506.02387D` devient `https://arxiv.org/abs/2506.02387` ;
 - affichage de l'URL de la page Notion apres l'upload avec la ligne `output notion page:  <url>` ;
 - retour de la page Notion existante quand un papier est deja present, ce qui permet d'afficher son URL sans recreer de doublon ;

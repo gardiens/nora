@@ -19,6 +19,7 @@ SERVER_IP = f"http://127.0.0.1:{SERVER_PORT}"
 PING_URL = f"{SERVER_IP}/connector/ping"
 ARXIV_ABS_URL_RE = re.compile(r"^(https?://arxiv\.org/abs/\d{4}\.\d{4,5})([A-Za-z])$")
 ARXIV_PDF_URL_RE = re.compile(r"^https?://arxiv\.org/pdf/(\d{4}\.\d{4,5}(?:v\d+)?)(?:\.pdf)?$", re.IGNORECASE)
+CVF_PDF_URL_RE = re.compile(r"^(https?://openaccess\.thecvf\.com/content/[^/]+)/papers/(.+)\.pdf$", re.IGNORECASE)
 
 # Global server process (singleton pattern)
 _translation_process = None
@@ -79,6 +80,11 @@ def normalize_url(url: str):
     if match:
         cleaned = f"https://arxiv.org/abs/{match.group(1)}"
         print(f"ℹ️ Normalized arXiv URL: {url} -> {cleaned}")
+        return cleaned
+    match = CVF_PDF_URL_RE.match(url)
+    if match:
+        cleaned = f"{match.group(1)}/html/{match.group(2)}.html"
+        print(f"ℹ️ Normalized CVF URL: {url} -> {cleaned}")
         return cleaned
     match = ARXIV_ABS_URL_RE.match(url)
     if match:
