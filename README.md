@@ -15,6 +15,19 @@ it means a lot to us !_**
 
 <br>
 
+# Changements
+
+Cette branche ajoute plusieurs corrections pratiques autour de `nora url` :
+
+- normalisation automatique des URLs arXiv PDF vers les pages metadata, par exemple `https://arxiv.org/pdf/2605.30307` devient `https://arxiv.org/abs/2605.30307` ;
+- nettoyage des URLs arXiv `abs` avec une lettre finale accidentelle, par exemple `https://arxiv.org/abs/2506.02387D` devient `https://arxiv.org/abs/2506.02387` ;
+- affichage de l'URL de la page Notion apres l'upload avec la ligne `output notion page:  <url>` ;
+- retour de la page Notion existante quand un papier est deja present, ce qui permet d'afficher son URL sans recreer de doublon ;
+- demarrage plus robuste du serveur de traduction Node, avec une attente plus longue et sans lecture de logs bloquante en cas d'echec ;
+- correction du message de compatibilite Node pour ne plus afficher un avertissement trompeur sur `npm`.
+
+<br>
+
 ## 📌  Introduction
 
 This project was built as a [Notion](https://www.notion.so)-based alternative to 

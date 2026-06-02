@@ -184,9 +184,11 @@ class NotionLibrary:
 
         # Skip if paper already exists in the database
         name = name[:self.cfg.max_text_length]
-        if len(self.get_papers(name_equals=name)) > 0:
+        existing_papers = self.get_papers(name_equals=name)
+        if len(existing_papers) > 0:
             print(f"ℹ️  Paper '{name}' already exists")
-            return
+            existing_papers[0]['_nora_existing'] = True
+            return existing_papers[0]
 
         data = {
             self.cfg.paper_keys['name']: {'title': [

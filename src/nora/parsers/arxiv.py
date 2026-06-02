@@ -138,6 +138,14 @@ class ArxivItem:
     def doi(self):
         return self._item.doi
 
+    @staticmethod
+    def _notion_page_data(response):
+        if response is None:
+            return None
+        if isinstance(response, dict):
+            return response
+        return response.json()
+
     def to_notion(self, cfg: OmegaConf, verbose: bool=True):
         """Move paper and authors to Notion. Takes a few seconds...
         """
@@ -155,9 +163,18 @@ class ArxivItem:
             year=self.year,
             venue=self.venue)
 
+        page_data = self._notion_page_data(response)
+        if verbose and page_data is not None:
+            page_url = page_data.get('url') or page_data.get('public_url')
+            if page_url:
+                print(f"output notion page:  {page_url}")
+
         # Second, create the blocks (free text) from the notes
-        if response is not None and self.notes is not None:
-            paper_id = response.json()['id']
+        if (
+                page_data is not None
+                and not page_data.get('_nora_existing', False)
+                and self.notes is not None):
+            paper_id = page_data['id']
             NotionLibrary(cfg).append_page_blocks(paper_id, self.notes)
 
         if verbose:

@@ -8,6 +8,7 @@ import subprocess
 import socket
 import atexit
 import platform
+import re
 from os.path import dirname
 from typing import Union, List, Dict
 
@@ -16,6 +17,8 @@ __all__ = ['translate_from_url', 'translate_from_identifier']
 SERVER_PORT = 1969
 SERVER_IP = f"http://127.0.0.1:{SERVER_PORT}"
 PING_URL = f"{SERVER_IP}/connector/ping"
+ARXIV_ABS_URL_RE = re.compile(r"^(https?://arxiv\.org/abs/\d{4}\.\d{4,5})([A-Za-z])$")
+ARXIV_PDF_URL_RE = re.compile(r"^https?://arxiv\.org/pdf/(\d{4}\.\d{4,5}(?:v\d+)?)(?:\.pdf)?$", re.IGNORECASE)
 
 # Global server process (singleton pattern)
 _translation_process = None
@@ -69,11 +72,27 @@ def ping_server(timeout: float=0.5):
         return False
 
 
+def normalize_url(url: str):
+    """Clean common copy/paste mistakes before sending a URL to Zotero."""
+    url = url.strip()
+    match = ARXIV_PDF_URL_RE.match(url)
+    if match:
+        cleaned = f"https://arxiv.org/abs/{match.group(1)}"
+        print(f"ℹ️ Normalized arXiv URL: {url} -> {cleaned}")
+        return cleaned
+    match = ARXIV_ABS_URL_RE.match(url)
+    if match:
+        cleaned = match.group(1)
+        print(f"ℹ️ Normalized arXiv URL: {url} -> {cleaned}")
+        return cleaned
+    return url
+
+
 # ------------------------------
 # Server Lifecycle Management
 # ------------------------------
 
-def start_server(patience: float=10, timestep: float=0.25):
+def start_server(patience: float=30, timestep: float=0.25):
     """
     Start the translation server only if not already running.
     Wait until it's *actually responding*, not just bound to port.
@@ -105,17 +124,23 @@ def start_server(patience: float=10, timestep: float=0.25):
     start = time.time()
     print("⏳ Waiting for server to become ready", end="", flush=True)
     while time.time() - start < patience:
-        if is_port_open(SERVER_PORT) and ping_server():
+        if is_port_open(SERVER_PORT):
             print("\n✅ Server is ready!")
             return
         print(".", end="", flush=True)
         time.sleep(timestep)
 
-    # Failed startup — dump logs for debugging
+    if is_port_open(SERVER_PORT):
+        print("\n✅ Server is ready!")
+        return
+
+    # Failed startup — stop the process before dumping logs so reads cannot hang.
     print("\n❌ Translation server failed to start. Logs:")
     try:
-        print(_translation_process.stdout.read().decode())
-        print(_translation_process.stderr.read().decode())
+        _translation_process.terminate()
+        stdout, stderr = _translation_process.communicate(timeout=5)
+        print(stdout.decode())
+        print(stderr.decode())
     except Exception:
         pass
 
@@ -209,6 +234,7 @@ def json_to_python(data: Union[str, List, Dict]):
 
 
 def translate_from_url(url: str, timeout: float=20):
+    url = normalize_url(url)
     start_server()
     print(f"ℹ️ Retrieving metadata for URL: {url} ...")
     try:
@@ -237,5 +263,5 @@ def translate_from_identifier(identifier: str, timeout: float=20):
 def check_node_version():
     output = subprocess.check_output(["node", "-v"]).decode().strip()
     major = int(output.replace('v', '').split(".")[0])
-    if major > 20:
-        print(f"⚠️ Detected npm {major}. Please use npm 20.x for compatibility.")
+    if major < 20:
+        print(f"⚠️ Detected Node {major}. Please use Node 20.x or newer for compatibility.")
