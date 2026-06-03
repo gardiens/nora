@@ -306,7 +306,10 @@ class ZoteroItem:
 
         # Search venue on arXiv
         if self.arxiv is not None and self.arxiv != '':
-            return ArxivItem(self.arxiv, cfg_venues=self.cfg_venues).venue
+            try:
+                return ArxivItem(self.arxiv, cfg_venues=self.cfg_venues).venue
+            except Exception as error:
+                print(f"⚠️ Could not query arXiv for venue metadata: {error}")
 
         return fallback_text
 
