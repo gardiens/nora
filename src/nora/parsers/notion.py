@@ -1,7 +1,9 @@
 import requests
 import mistletoe
+import re
 from notional.parser import HtmlParser
 from omegaconf import OmegaConf
+from pathlib import Path
 from typing import List, Dict
 
 from nora.utils.keys import sanity_check_config
@@ -114,6 +116,105 @@ class NotionLibrary:
         """Get topic pages from your Notion database.
         """
         return self._get_pages(self.cfg.topics_db_id, *args, **kwargs)
+
+    @staticmethod
+    def _page_title(page: Dict):
+        name_prop = page.get('properties', {}).get('Name', {})
+        return ''.join(
+            part.get('plain_text', '')
+            for part in name_prop.get('title', [])) or page.get('id', '')
+
+    @staticmethod
+    def _property_text(prop: Dict):
+        if not prop:
+            return ''
+        prop_type = prop.get('type')
+        if prop_type == 'formula':
+            formula = prop.get('formula') or {}
+            return formula.get('string') or ''
+        if prop_type == 'rich_text':
+            return ''.join(
+                part.get('plain_text', '')
+                for part in prop.get('rich_text', []))
+        if prop_type == 'title':
+            return ''.join(
+                part.get('plain_text', '')
+                for part in prop.get('title', []))
+        return ''
+
+    def export_papers_bibtex(
+            self,
+            output_path: str='nora_papers_from_notion.bib',
+            report_path: str=None,
+            bibtex_property: str='Bibtex'):
+        """Export BibTeX entries stored in the Notion Papers database."""
+        pages = self.get_papers()
+        valid = []
+        missing = []
+        invalid = []
+        duplicates = []
+        seen_keys = set()
+
+        for page in pages:
+            title = self._page_title(page)
+            props = page.get('properties', {})
+            bib = self._property_text(
+                props.get(bibtex_property) or props.get('BibTeX')
+                or props.get('Bibtex')).strip()
+
+            if not bib:
+                missing.append(title)
+                continue
+
+            match = re.search(r'@\w+\s*\{\s*([^,]*)', bib)
+            key = match.group(1).strip() if match else ''
+            if not key:
+                invalid.append(title)
+                continue
+            if key in seen_keys:
+                duplicates.append((title, key))
+                continue
+
+            seen_keys.add(key)
+            valid.append((title, key, bib))
+
+        output_path = Path(output_path)
+        output_path.write_text(
+            '\n\n'.join(bib for _, _, bib in valid).rstrip() + '\n',
+            encoding='utf-8')
+
+        if report_path is None:
+            report_path = output_path.with_suffix('.report.txt')
+        report_path = Path(report_path)
+        lines = [
+            f'Total Notion pages: {len(pages)}',
+            f'Valid BibTeX entries written: {len(valid)}',
+            f'Missing BibTeX: {len(missing)}',
+            f'Invalid BibTeX skipped: {len(invalid)}',
+            f'Duplicate BibTeX keys skipped: {len(duplicates)}',
+            '',
+        ]
+        if invalid:
+            lines.append('Invalid BibTeX skipped:')
+            lines.extend(f'- {title}' for title in invalid)
+            lines.append('')
+        if missing:
+            lines.append('Missing BibTeX:')
+            lines.extend(f'- {title}' for title in missing)
+            lines.append('')
+        if duplicates:
+            lines.append('Duplicate keys skipped:')
+            lines.extend(f'- {title}: {key}' for title, key in duplicates)
+        report_path.write_text('\n'.join(lines), encoding='utf-8')
+
+        return {
+            'output_path': str(output_path),
+            'report_path': str(report_path),
+            'total_pages': len(pages),
+            'valid': len(valid),
+            'missing': len(missing),
+            'invalid': len(invalid),
+            'duplicates': len(duplicates)}
 
     def get_page_blocks(self, page_id: str):
         url = f"https://api.notion.com/v1/blocks/{page_id}/children?page_size="
