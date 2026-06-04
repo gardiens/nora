@@ -26,6 +26,8 @@ Cette branche ajoute plusieurs corrections pratiques autour de `nora url` :
 - affichage de la cle de citation BibTeX calculee par Notion avec la ligne `bibtex name :  <key>` ;
 - export de tous les BibTeX stockes dans la base Notion Papers avec `nora bibtex` ;
 - retour de la page Notion existante quand un papier est deja present, ce qui permet d'afficher son URL sans recreer de doublon ;
+- utilisation directe des IDs retournes par Notion lors de la creation des auteurs, topics et venues, afin d'eviter les erreurs liees au delai d'indexation de Notion ;
+- suppression du lookup secondaire bloquant vers l'API arXiv lors de l'upload par URL ;
 - demarrage plus robuste du serveur de traduction Node, avec une attente plus longue et sans lecture de logs bloquante en cas d'echec ;
 - correction du message de compatibilite Node pour ne plus afficher un avertissement trompeur sur `npm`.
 

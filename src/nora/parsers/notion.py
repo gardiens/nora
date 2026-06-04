@@ -243,7 +243,16 @@ class NotionLibrary:
         url = "https://api.notion.com/v1/pages"
         payload = {'parent': {'database_id': database_id}, 'properties': data}
         response = requests.post(url, headers=self.headers, json=payload)
+        response.raise_for_status()
         return response
+
+    @staticmethod
+    def _created_page_id(response):
+        """Return the page ID directly from a Notion create response."""
+        if response is None:
+            return None
+        data = response if isinstance(response, dict) else response.json()
+        return data.get('id')
 
     def create_person(
             self,
@@ -319,9 +328,11 @@ class NotionLibrary:
             author = author[:self.cfg.max_text_length]
             item = self.get_people(name_equals=author)
             if len(item) == 0:
-                self.create_person(author)
-                item = self.get_people(name_equals=author)
-            author_ids.append(item[0]['id'])
+                author_id = self._created_page_id(self.create_person(author))
+            else:
+                author_id = item[0]['id']
+            if author_id is not None:
+                author_ids.append(author_id)
         data[self.cfg.paper_keys['authors']] = {
             'relation': [{'id': x} for x in author_ids]}
 
@@ -331,9 +342,11 @@ class NotionLibrary:
             topic = topic[:self.cfg.max_text_length]
             item = self.get_topics(name_equals=topic)
             if len(item) == 0:
-                self.create_topic(topic)
-                item = self.get_topics(name_equals=topic)
-            topic_ids.append(item[0]['id'])
+                topic_id = self._created_page_id(self.create_topic(topic))
+            else:
+                topic_id = item[0]['id']
+            if topic_id is not None:
+                topic_ids.append(topic_id)
         data[self.cfg.paper_keys['topics']] = {
             'relation': [{'id': x} for x in topic_ids]}
 
@@ -363,11 +376,12 @@ class NotionLibrary:
             venue = venue[:self.cfg.max_text_length]
             item = self.get_venues(name_equals=venue)
             if len(item) == 0:
-                self.create_venue(venue)
-                item = self.get_venues(name_equals=venue)
-            venue_id = item[0]['id']
-            data[self.cfg.paper_keys['venue']] = {
-                'relation': [{'id': venue_id}]}
+                venue_id = self._created_page_id(self.create_venue(venue))
+            else:
+                venue_id = item[0]['id']
+            if venue_id is not None:
+                data[self.cfg.paper_keys['venue']] = {
+                    'relation': [{'id': venue_id}]}
 
         return self._create_page(self.cfg.papers_db_id, data)
 

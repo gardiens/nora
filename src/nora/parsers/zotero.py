@@ -5,7 +5,6 @@ from omegaconf import OmegaConf
 from typing import List, Dict
 
 from nora.utils.venues import parse_venue
-from nora.parsers.arxiv import ArxivItem
 from nora.parsers.notion import NotionLibrary
 from nora.utils.translation_server import *
 from nora.utils.zotero import *
@@ -303,13 +302,6 @@ class ZoteroItem:
         venue = parse_venue(self.notes, self.cfg_venues)
         if venue is not None:
             return venue
-
-        # Search venue on arXiv
-        if self.arxiv is not None and self.arxiv != '':
-            try:
-                return ArxivItem(self.arxiv, cfg_venues=self.cfg_venues).venue
-            except Exception as error:
-                print(f"⚠️ Could not query arXiv for venue metadata: {error}")
 
         return fallback_text
 
