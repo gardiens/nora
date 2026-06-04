@@ -23,6 +23,7 @@ Cette branche ajoute plusieurs corrections pratiques autour de `nora url` :
 - normalisation automatique des PDFs CVF/OpenAccess vers les pages HTML metadata, par exemple `https://openaccess.thecvf.com/content/CVPR2023/papers/..._paper.pdf` devient `https://openaccess.thecvf.com/content/CVPR2023/html/..._paper.html` ;
 - nettoyage des URLs arXiv `abs` avec une lettre finale accidentelle, par exemple `https://arxiv.org/abs/2506.02387D` devient `https://arxiv.org/abs/2506.02387` ;
 - affichage de l'URL de la page Notion apres l'upload avec la ligne `output notion page:  <url>` ;
+- affichage de la cle de citation BibTeX calculee par Notion avec la ligne `bibtex name :  <key>` ;
 - export de tous les BibTeX stockes dans la base Notion Papers avec `nora bibtex` ;
 - retour de la page Notion existante quand un papier est deja present, ce qui permet d'afficher son URL sans recreer de doublon ;
 - demarrage plus robuste du serveur de traduction Node, avec une attente plus longue et sans lecture de logs bloquante en cas d'echec ;

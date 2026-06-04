@@ -153,7 +153,8 @@ class ArxivItem:
             print(f"⬆️ Uploading '{self.title}'...")
 
         # First, create the paper and its properties
-        response = NotionLibrary(cfg).create_paper(
+        notion = NotionLibrary(cfg)
+        response = notion.create_paper(
             self.title,
             authors=self.authors,
             topics=[],
@@ -168,6 +169,9 @@ class ArxivItem:
             page_url = page_data.get('url') or page_data.get('public_url')
             if page_url:
                 print(f"output notion page:  {page_url}")
+            bibtex_key = notion.get_bibtex_key(page_data)
+            if bibtex_key:
+                print(f"bibtex name :  {bibtex_key}")
 
         # Second, create the blocks (free text) from the notes
         if (
@@ -175,7 +179,7 @@ class ArxivItem:
                 and not page_data.get('_nora_existing', False)
                 and self.notes is not None):
             paper_id = page_data['id']
-            NotionLibrary(cfg).append_page_blocks(paper_id, self.notes)
+            notion.append_page_blocks(paper_id, self.notes)
 
         if verbose:
             print('✅ Done')

@@ -328,7 +328,8 @@ class ZoteroItem:
             print(f"⬆️ Uploading '{self.title}'...")
 
         # First, create the paper and its properties
-        response = NotionLibrary(cfg).create_paper(
+        notion = NotionLibrary(cfg)
+        response = notion.create_paper(
             self.title,
             authors=[f"{x[0]} {x[1]}" for x in self.authors],
             topics=self.tags,
@@ -343,6 +344,9 @@ class ZoteroItem:
             page_url = page_data.get('url') or page_data.get('public_url')
             if page_url:
                 print(f"output notion page:  {page_url}")
+            bibtex_key = notion.get_bibtex_key(page_data)
+            if bibtex_key:
+                print(f"bibtex name :  {bibtex_key}")
 
         # Second, create the blocks (free text) from the notes
         if (
@@ -351,7 +355,7 @@ class ZoteroItem:
                 and self.notes is not None
                 and self.notes != ''):
             paper_id = page_data['id']
-            NotionLibrary(cfg).append_page_blocks(paper_id, self.notes)
+            notion.append_page_blocks(paper_id, self.notes)
 
         if verbose:
             print('✅ Done')

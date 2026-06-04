@@ -47,8 +47,8 @@ class NotionLibrary:
         """
         url = f"https://api.notion.com/v1/pages/{page_id}"
         response = requests.get(url, headers=self.headers)
-        if response.text['object'] != 'error':
-            return response.json()
+        response.raise_for_status()
+        return response.json()
 
     def _get_pages(
             self,
@@ -141,6 +141,24 @@ class NotionLibrary:
                 part.get('plain_text', '')
                 for part in prop.get('title', []))
         return ''
+
+    @classmethod
+    def bibtex_key_from_page(cls, page: Dict, bibtex_property: str='Bibtex'):
+        """Extract the BibTeX citation key from a Notion paper page."""
+        props = page.get('properties', {})
+        bib = cls._property_text(
+            props.get(bibtex_property) or props.get('BibTeX')
+            or props.get('Bibtex')).strip()
+        match = re.search(r'@\w+\s*\{\s*([^,]*)', bib)
+        return match.group(1).strip() if match else ''
+
+    def get_bibtex_key(self, page: Dict, bibtex_property: str='Bibtex'):
+        """Return a page BibTeX key, refreshing formula properties if needed."""
+        key = self.bibtex_key_from_page(page, bibtex_property)
+        if key or not page.get('id'):
+            return key
+        refreshed = self.retrieve_page_from_id(page['id'])
+        return self.bibtex_key_from_page(refreshed, bibtex_property)
 
     def export_papers_bibtex(
             self,
