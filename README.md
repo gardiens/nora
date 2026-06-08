@@ -29,6 +29,8 @@ Cette branche ajoute plusieurs corrections pratiques autour de `nora url` :
 - utilisation directe des IDs retournes par Notion lors de la creation des auteurs, topics et venues, afin d'eviter les erreurs liees au delai d'indexation de Notion ;
 - suppression du lookup secondaire bloquant vers l'API arXiv lors de l'upload par URL ;
 - demarrage plus robuste du serveur de traduction Node, avec une attente plus longue et sans lecture de logs bloquante en cas d'echec ;
+- utilisation du binaire Node de l'environnement Python actif quand `node` n'est pas disponible dans le `PATH` ;
+- remplacement des appels CLI `curl` par des requetes Python `requests`, pour ne plus dependre d'un binaire `curl` externe ;
 - correction du message de compatibilite Node pour ne plus afficher un avertissement trompeur sur `npm`.
 
 <br>

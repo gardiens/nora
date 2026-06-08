@@ -9,6 +9,8 @@ import socket
 import atexit
 import platform
 import re
+import requests
+import shutil
 from os.path import dirname
 from typing import Union, List, Dict
 
@@ -63,13 +65,9 @@ def is_port_open(port: Union[str, int]):
 def ping_server(timeout: float=0.5):
     """Return True if the server responds *in any way* to /connector/ping."""
     try:
-        out = subprocess.check_output([
-            'curl', '-m', str(timeout), '-s', '-o', '/dev/null', '-w', '%{http_code}',
-            PING_URL
-        ])
-        status = out.decode().strip()
-        return status.isdigit()  # 200, 404, etc. — anything is good
-    except subprocess.CalledProcessError:
+        response = requests.get(PING_URL, timeout=timeout)
+        return response.status_code is not None
+    except requests.RequestException:
         return False
 
 
@@ -92,6 +90,19 @@ def normalize_url(url: str):
         print(f"ℹ️ Normalized arXiv URL: {url} -> {cleaned}")
         return cleaned
     return url
+
+
+def node_executable():
+    """Return a Node executable from PATH or the active Python environment."""
+    executable = shutil.which('node')
+    if executable:
+        return executable
+
+    env_node = os.path.join(sys.prefix, 'bin', 'node')
+    if os.path.exists(env_node):
+        return env_node
+
+    return 'node'
 
 
 # ------------------------------
@@ -119,7 +130,7 @@ def start_server(patience: float=30, timestep: float=0.25):
 
     server_path = os.path.join(dirname(dirname(__file__)), 'translation_server')
     _translation_process = subprocess.Popen(
-        ['node', 'src/server.js'],
+        [node_executable(), 'src/server.js'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=server_path,
@@ -244,10 +255,15 @@ def translate_from_url(url: str, timeout: float=20):
     start_server()
     print(f"ℹ️ Retrieving metadata for URL: {url} ...")
     try:
-        out = subprocess.check_output([
-            'curl', '-s', '-S', '-d', url, '-m', f'{timeout}', '-H', "Content-Type: text/plain", f"{SERVER_IP}/web"
-        ])
-    except subprocess.CalledProcessError:
+        response = requests.post(
+            f"{SERVER_IP}/web",
+            data=url,
+            headers={"Content-Type": "text/plain"},
+            timeout=timeout)
+        response.raise_for_status()
+        out = response.text
+    except requests.RequestException as error:
+        print(f"❌ Failed to contact the translation server: {error}")
         print("❌ Failed to contact the translation server. Please check your internet connection or try again.")
         sys.exit(1)
     return json_to_python(out)
@@ -257,17 +273,22 @@ def translate_from_identifier(identifier: str, timeout: float=20):
     start_server()
     print(f"ℹ️ Retrieving metadata for identifier: {identifier} ...")
     try:
-        out = subprocess.check_output([
-            'curl', '-s', '-S', '-d', identifier, '-m', f'{timeout}', '-H', "Content-Type: text/plain", f"{SERVER_IP}/search"
-        ])
-    except subprocess.CalledProcessError:
+        response = requests.post(
+            f"{SERVER_IP}/search",
+            data=identifier,
+            headers={"Content-Type": "text/plain"},
+            timeout=timeout)
+        response.raise_for_status()
+        out = response.text
+    except requests.RequestException as error:
+        print(f"❌ Failed to contact the translation server: {error}")
         print("❌ Failed to contact the translation server. Please check your internet connection or try again.")
         sys.exit(1)
     return json_to_python(out)
 
 
 def check_node_version():
-    output = subprocess.check_output(["node", "-v"]).decode().strip()
+    output = subprocess.check_output([node_executable(), "-v"]).decode().strip()
     major = int(output.replace('v', '').split(".")[0])
     if major < 20:
         print(f"⚠️ Detected Node {major}. Please use Node 20.x or newer for compatibility.")
