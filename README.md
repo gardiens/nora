@@ -162,7 +162,7 @@ git clone --recurse-submodules https://github.com/drprojects/nora
 
 # Install the python dependencies
 cd nora
-pip install -e .
+PYTHONUTF8=1 PYTHONIOENCODING=utf-8 pip install -e . 
 
 # Install the node.js server
 cd src/nora/translation_server
