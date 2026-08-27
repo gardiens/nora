@@ -185,7 +185,7 @@ class ZoteroItem:
 
     @property
     def url(self):
-        return self.item['data']['url']
+        return self.item['data'].get('url', '')
 
     @property
     def arxiv(self):

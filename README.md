@@ -86,6 +86,13 @@ from an identifier (DOI, ISBN, PMID, arXiv ID), exactly like with
 > versions such as `node 23` so we recommend making sure you use 
 > `node 20` for now. You can check your version by running `node -v`.
 
+> **Note**: NoRA installs the [Zotero translation server](https://github.com/zotero/translation-server)
+> at a pinned revision (`TRANSLATION_SERVER_REF` in `setup.py`), rather 
+> than at its latest revision. Upstream moved to `jsdom 29` in April 2026,
+> which requires `node >= 20.19` and otherwise fails to start with an 
+> `ERR_REQUIRE_ESM` error. If you are on `node >= 20.19` and want more 
+> recent translators, you can bump `TRANSLATION_SERVER_REF` and reinstall.
+
 NoRA-Tools runs on Linux, macOS and Windows. On Windows, make sure `node` and 
 `npm` are on your `PATH` (the official Node.js installer does this for you), 
 and prefer a modern terminal such as Windows Terminal or PowerShell so the 
@@ -158,16 +165,13 @@ If you want to extend NoRA-Tools to your need, you can install from source:
 
 ```bash
 # Get the source code
-git clone --recurse-submodules https://github.com/drprojects/nora
+git clone https://github.com/drprojects/nora
 
-# Install the python dependencies
+# Install the python dependencies. This also clones the pinned revision
+# of the translation server into src/nora/translation_server and
+# installs its node.js dependencies for you
 cd nora
 PYTHONUTF8=1 PYTHONIOENCODING=utf-8 pip install -e . 
-
-# Install the node.js server
-cd src/nora/translation_server
-npm install
-cd ../..
 ```
 </details>
 
