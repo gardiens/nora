@@ -86,6 +86,11 @@ from an identifier (DOI, ISBN, PMID, arXiv ID), exactly like with
 > versions such as `node 23` so we recommend making sure you use 
 > `node 20` for now. You can check your version by running `node -v`.
 
+NoRA-Tools runs on Linux, macOS and Windows. On Windows, make sure `node` and 
+`npm` are on your `PATH` (the official Node.js installer does this for you), 
+and prefer a modern terminal such as Windows Terminal or PowerShell so the 
+emojis NoRA prints display correctly.
+
 ### Installing the template in Notion
 
 Simply duplicate the [NoRA template](https://silent-switch-780.notion.site/Template-research-library-286d3393a7e845c6a689a5c693790987) to your personal Notion account.
@@ -172,6 +177,49 @@ nora configure
 ```
 this will prompt you to pass your secret keys, which will be saved in 
 `~/.nora/user.yaml`.
+
+<details>
+<summary><b>⚡ Configuring from a YAML file instead of typing your keys</b></summary>
+
+If you already keep your keys in a YAML file, you can configure NoRA in one 
+command, without any prompt:
+
+```bash
+nora configure --from-file config.yaml
+```
+
+where `config.yaml` looks like:
+
+```yaml
+notion:
+    token: your_api_secret_token
+    papers_db_id: your_papers_database_id
+    people_db_id: your_people_database_id
+    affiliations_db_id: your_affiliations_database_id
+    venues_db_id: your_venues_database_id
+    topics_db_id: your_topics_database_id
+zotero:
+    library_id: your_library_id
+    api_token: your_api_key
+```
+
+The parser is lenient, so you do not have to reformat your file:
+- database IDs may be bare IDs, dash-separated UUIDs, or full Notion URLs 
+  (`https://www.notion.so/ws/Papers-5767cec0...?v=...`), the ID is extracted 
+  for you;
+- keys may also be written flat (`notion_token: ntn_XXX`) or with common 
+  aliases (`papers_db`, `papers_database_id`, ...);
+- keys absent from the file keep the value they already have in 
+  `~/.nora/user.yaml`, so a partial file only updates the keys it carries;
+- keys NoRA does not use (e.g. `project_db_id`) are kept in your config and 
+  simply reported;
+- any Notion key still missing after the import is listed, so you know what is 
+  left to fill in.
+
+The `zotero` section is optional, and so is any key you would rather set later 
+with `nora configure`.
+
+</details>
 
 <details>
 <summary><b>

@@ -3,7 +3,6 @@ import sys
 import json
 import time
 import psutil
-import signal
 import subprocess
 import socket
 import atexit
@@ -11,17 +10,21 @@ import platform
 import re
 import requests
 import shutil
-from os.path import dirname
+from pathlib import Path
 from typing import Union, List, Dict
 
 __all__ = ['translate_from_url', 'translate_from_identifier']
+
+IS_WINDOWS = os.name == "nt"
 
 SERVER_PORT = 1969
 SERVER_IP = f"http://127.0.0.1:{SERVER_PORT}"
 PING_URL = f"{SERVER_IP}/connector/ping"
 ARXIV_ABS_URL_RE = re.compile(r"^(https?://arxiv\.org/abs/\d{4}\.\d{4,5})([A-Za-z])$")
 ARXIV_PDF_URL_RE = re.compile(r"^https?://arxiv\.org/pdf/(\d{4}\.\d{4,5}(?:v\d+)?)(?:\.pdf)?$", re.IGNORECASE)
-CVF_PDF_URL_RE = re.compile(r"^(https?://openaccess\.thecvf\.com/content/[^/]+)/papers/(.+)\.pdf$", re.IGNORECASE)
+CVF_PDF_URL_RE = re.compile(
+    r"^(https?://openaccess\.thecvf\.com/(?:content(?:_[^/]+)?|content/[^/]+))/papers/(.+)\.pdf$",
+    re.IGNORECASE)
 
 # Global server process (singleton pattern)
 _translation_process = None
@@ -31,9 +34,15 @@ _translation_process = None
 # Utility Functions
 # ------------------------------
 
-def get_pid_using_port_unix(port: Union[str, int]):
+def get_pid_using_port_psutil(port: Union[str, int]):
     """Recover the PID of the process using a given port."""
-    for con in psutil.net_connections():
+    try:
+        connections = psutil.net_connections(kind="inet")
+    except (psutil.AccessDenied, PermissionError):
+        # Listing connections of other users requires elevated
+        # privileges on some systems (macOS, some Windows setups)
+        return -1
+    for con in connections:
         if con.laddr and con.laddr.port == port:
             return con.pid
         if con.raddr and con.raddr.port == port:
@@ -53,8 +62,7 @@ def get_pid_using_port_osx(port: Union[str, int]):
 def get_pid_using_port(port: Union[str, int]):
     if platform.system() == "Darwin":
         return get_pid_using_port_osx(port)
-    else:
-        return get_pid_using_port_unix(port)
+    return get_pid_using_port_psutil(port)
 
 def is_port_open(port: Union[str, int]):
     """True if something is listening on the port."""
@@ -98,9 +106,15 @@ def node_executable():
     if executable:
         return executable
 
-    env_node = os.path.join(sys.prefix, 'bin', 'node')
-    if os.path.exists(env_node):
-        return env_node
+    # Fall back to a Node shipped inside the active Python environment.
+    # Conda puts it in `<prefix>/bin` on Unix, and in `<prefix>` or
+    # `<prefix>/Scripts` on Windows
+    prefix = Path(sys.prefix)
+    candidates = [prefix / 'Scripts' / 'node.exe', prefix / 'node.exe'] \
+        if IS_WINDOWS else [prefix / 'bin' / 'node']
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
 
     return 'node'
 
@@ -128,13 +142,28 @@ def start_server(patience: float=30, timestep: float=0.25):
     # Check that the node version is at most 20
     check_node_version()
 
-    server_path = os.path.join(dirname(dirname(__file__)), 'translation_server')
+    server_path = Path(__file__).resolve().parent.parent / 'translation_server'
+    server_script = server_path / 'src' / 'server.js'
+    if not server_script.exists():
+        print(
+            f"❌ Could not find the translation server at {server_script}.\n"
+            f"👉 Reinstall NoRA, or run `npm install` in {server_path}.")
+        sys.exit(1)
+
+    # Run the server in its own process group, so that it can be killed
+    # along with its children. Windows has no process groups in the POSIX
+    # sense and uses creation flags instead
+    if IS_WINDOWS:
+        group_kwargs = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+    else:
+        group_kwargs = {"start_new_session": True}
+
     _translation_process = subprocess.Popen(
-        [node_executable(), 'src/server.js'],
+        [node_executable(), str(server_script)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        cwd=server_path,
-        preexec_fn=os.setsid
+        cwd=str(server_path),
+        **group_kwargs
     )
 
     # Wait for port binding + ping success
@@ -165,17 +194,40 @@ def start_server(patience: float=30, timestep: float=0.25):
     sys.exit(1)
 
 
+def kill_process_tree(pid: int, patience: float=5):
+    """Terminate a process and all its children, on any platform."""
+    try:
+        parent = psutil.Process(pid)
+    except (psutil.NoSuchProcess, ValueError):
+        return
+
+    try:
+        processes = parent.children(recursive=True)
+    except psutil.Error:
+        processes = []
+    processes.append(parent)
+
+    for process in processes:
+        try:
+            process.terminate()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+    _, alive = psutil.wait_procs(processes, timeout=patience)
+    for process in alive:
+        try:
+            process.kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+
 def kill_server():
     """Kill the server and all children properly."""
     global _translation_process
     if _translation_process is None:
         return
 
-    # Kill process group
-    try:
-        os.killpg(os.getpgid(_translation_process.pid), signal.SIGTERM)
-    except ProcessLookupError:
-        pass
+    kill_process_tree(_translation_process.pid)
 
     # Cleanup lingering socket holders
     kill_pid_using_port(SERVER_PORT)
@@ -187,10 +239,7 @@ def kill_pid_using_port(port: Union[str, int], patience: float=5, timestep: floa
     if pid is None or pid <= 0:
         return  # nothing to kill
 
-    try:
-        os.kill(pid, signal.SIGTERM)
-    except ProcessLookupError:
-        return
+    kill_process_tree(pid, patience=patience)
 
     start = time.time()
     while True:

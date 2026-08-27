@@ -3,6 +3,7 @@ from setuptools.command.build_py import build_py
 from setuptools.command.install import install
 from setuptools.command.develop import develop
 import subprocess
+import shutil
 import os
 import sys
 import re
@@ -10,6 +11,24 @@ import re
 TRANSLATION_SERVER_REPO = "https://github.com/zotero/translation-server.git"
 TRANSLATION_SERVER_DIR = os.path.join("src", "nora", "translation_server")
 TRANSLATION_SERVER_GIT = os.path.join(TRANSLATION_SERVER_DIR, ".git")
+IS_WINDOWS = os.name == "nt"
+
+
+def executable(name: str):
+    """Resolve a command to an absolute path.
+
+    On Windows, `npm` is a `npm.cmd` shim which `subprocess` does not
+    resolve on its own, hence the explicit lookup.
+    """
+    resolved = shutil.which(name)
+    if resolved:
+        return resolved
+    if IS_WINDOWS:
+        for extension in (".cmd", ".exe", ".bat"):
+            resolved = shutil.which(name + extension)
+            if resolved:
+                return resolved
+    return name
 
 
 # ───────────────────────────────────────────────
@@ -20,7 +39,7 @@ def check_node_version(min_major: int = 18, max_major: int = 20):
     """
     try:
         result = subprocess.run(
-            ["node", "-v"],
+            [executable("node"), "-v"],
             capture_output=True,
             text=True,
             check=True
@@ -61,7 +80,7 @@ def prepare_translation_server():
         print(f"📦 Cloning translation_server from {TRANSLATION_SERVER_REPO}...")
         sys.stdout.flush()
         subprocess.run(
-            ["git", "clone", "--recurse-submodules", TRANSLATION_SERVER_REPO, TRANSLATION_SERVER_DIR],
+            [executable("git"), "clone", "--recurse-submodules", TRANSLATION_SERVER_REPO, TRANSLATION_SERVER_DIR],
             check=True,
             text=True,
             stdout=sys.stdout,
@@ -74,7 +93,7 @@ def prepare_translation_server():
         print("📦 Installing npm dependencies for translation_server...")
         sys.stdout.flush()
         subprocess.run(
-            ["npm", "install"],
+            [executable("npm"), "install"],
             cwd=TRANSLATION_SERVER_DIR,
             check=True,
             stdout=sys.stdout,
