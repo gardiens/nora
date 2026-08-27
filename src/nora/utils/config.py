@@ -51,7 +51,8 @@ def load_yaml(path: Union[str, Path]):
     path = Path(path)
     if not path.exists():
         return {}
-    with path.open("r", encoding="utf-8") as f:
+    
+    with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
 
