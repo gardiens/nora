@@ -182,15 +182,25 @@ def start_server(patience: float=30, timestep: float=0.25):
 
     # Failed startup — stop the process before dumping logs so reads cannot hang.
     print("\n❌ Translation server failed to start. Logs:")
+    logs = ''
     try:
         _translation_process.terminate()
         stdout, stderr = _translation_process.communicate(timeout=5)
-        print(stdout.decode())
-        print(stderr.decode())
+        logs = stdout.decode() + stderr.decode()
+        print(logs)
     except Exception:
         pass
 
-    print("Failed to start translation server.")
+    # The most common cause is a translation server built against a
+    # newer jsdom than the local node can load
+    if 'ERR_REQUIRE_ESM' in logs:
+        print(
+            f"👉 Your translation server requires a more recent node than "
+            f"{get_node_version()}. Either install node >=20.19, or "
+            f"reinstall NoRA to get the pinned translation server revision:"
+            f"\n     pip install --force-reinstall "
+            f"git+https://github.com/drprojects/nora.git")
+
     sys.exit(1)
 
 
@@ -280,6 +290,12 @@ def json_to_python(data: Union[str, List, Dict]):
         sys.exit(1)
 
     if isinstance(data, list):
+        if len(data) == 0:
+            print(
+                "❌ The translation server could not extract any metadata "
+                "from this page. It may not be supported, or the page may "
+                "have refused the request.")
+            sys.exit(1)
         if isinstance(data[0], dict):
             data = data[0]
         else:
@@ -336,8 +352,14 @@ def translate_from_identifier(identifier: str, timeout: float=20):
     return json_to_python(out)
 
 
-def check_node_version():
-    output = subprocess.check_output([node_executable(), "-v"]).decode().strip()
+def get_node_version():
+    return subprocess.check_output([node_executable(), "-v"]).decode().strip()
+
+
+def check_node_version(min_major: int=18, max_major: int=20):
+    output = get_node_version()
     major = int(output.replace('v', '').split(".")[0])
-    if major < 20:
-        print(f"⚠️ Detected Node {major}. Please use Node 20.x or newer for compatibility.")
+    if major < min_major or major > max_major:
+        print(
+            f"⚠️ Detected node {major}. Please use node >={min_major} and "
+            f"<={max_major} for compatibility.")
