@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 import click
 from nora.utils.config import load_config, configure_user_config
 from nora.parsers.notion import NotionLibrary
@@ -111,6 +112,7 @@ def id_command(id: str):
 def bibtex_command(output: str, report: str, bibtex_property: str):
     """Export all BibTeX entries from the Notion Papers database."""
     cfg = load_config()
+    click.echo(f"ℹ️ Exporting BibTeX to {Path(output).resolve()}")
     stats = NotionLibrary(cfg.notion).export_papers_bibtex(
         output_path=output,
         report_path=report,
